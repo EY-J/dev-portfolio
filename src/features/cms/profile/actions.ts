@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthenticatedUser } from "@/features/cms/auth/service";
+import { getAdminUser } from "@/features/cms/auth/service";
 import { updateProfile } from "@/features/cms/profile/service";
 import type {
   ProfileActionState,
   ProfileInput,
 } from "@/features/cms/profile/types";
 
-const PROFILE_PATH = "/admin/dashboard/profile";
+const PROFILE_PATH = "/admin/profile";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -65,7 +65,7 @@ export async function updateProfileAction(
   _previousState: ProfileActionState,
   formData: FormData
 ): Promise<ProfileActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 

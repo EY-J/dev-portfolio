@@ -7,14 +7,14 @@ interface ProjectListProps {
 
 export default function ProjectList({ projects }: ProjectListProps) {
   if (projects.length === 0) {
-    return <p>No projects are available yet.</p>;
+    return <p className="mt-6 text-sm text-slate-600">No projects are available yet.</p>;
   }
 
   return (
-    <section aria-label="Projects">
+    <div aria-label="Projects" className="mt-8 grid gap-6 md:grid-cols-2" role="list">
       {projects.map((project) => (
         <ProjectCard key={project.id} project={project} />
       ))}
-    </section>
+    </div>
   );
 }

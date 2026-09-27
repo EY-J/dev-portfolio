@@ -1,13 +1,5 @@
-import ProjectList from "@/features/website/projects/components/ProjectList";
-import { getPublicProjects } from "@/features/website/projects/service";
+import { redirect } from "next/navigation";
 
-export default async function ProjectsPage() {
-  const projects = await getPublicProjects();
-
-  return (
-    <main>
-      <h1>Projects</h1>
-      <ProjectList projects={projects} />
-    </main>
-  );
+export default function ProjectsPage() {
+  redirect("/#projects");
 }

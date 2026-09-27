@@ -1,6 +1,9 @@
 "use server";
 
-import { authenticateWithPassword } from "@/features/cms/auth/service";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { authenticateWithPassword, getAdminAccess } from "@/features/cms/auth/service";
 
 export interface LoginActionState {
   success: boolean;
@@ -22,18 +25,30 @@ export async function login(
     return { success: false, error: "Enter your password." };
   }
 
+  let authenticated = false;
+
   try {
     const result = await authenticateWithPassword(email.trim(), password);
-
-    if (!result.success) {
-      return { success: false, error: "Invalid email or password." };
-    }
-
-    return { success: true, error: null };
+    authenticated = result.success;
   } catch {
     return {
       success: false,
       error: "Unable to sign in right now. Please try again.",
     };
   }
+
+  if (!authenticated) {
+    return { success: false, error: "Invalid email or password." };
+  }
+
+  try {
+    if ((await getAdminAccess()).status !== "allowed") {
+      return { success: false, error: "Access denied." };
+    }
+  } catch {
+    return { success: false, error: "Unable to verify access right now." };
+  }
+
+  revalidatePath("/admin", "layout");
+  redirect("/admin");
 }

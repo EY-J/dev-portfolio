@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { type ChangeEvent, useActionState, useState } from "react";
+import { type ChangeEvent, useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
 import type { Project } from "@/types/project";
 
 interface ProjectFormProps {
+  onSuccess?: () => void;
   project?: Project;
 }
 
@@ -28,7 +29,7 @@ const fieldClassName =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-100";
 const labelClassName = "block text-sm font-medium text-slate-700";
 
-export default function ProjectForm({ project }: ProjectFormProps) {
+export default function ProjectForm({ onSuccess, project }: ProjectFormProps) {
   const action = project
     ? updateProjectAction.bind(null, project.id)
     : createProjectAction;
@@ -40,6 +41,12 @@ export default function ProjectForm({ project }: ProjectFormProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fieldPrefix = project ? `project-${project.id}` : "new-project";
+
+  useEffect(() => {
+    if (state.success) {
+      onSuccess?.();
+    }
+  }, [onSuccess, state.success]);
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

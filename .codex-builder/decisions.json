@@ -1,0 +1,9 @@
+{
+  "packageManager": "npm",
+  "framework": "Next.js + React",
+  "database": "",
+  "styling": "Tailwind CSS",
+  "sourceRoot": "src",
+  "avoidUnrelatedRefactors": true,
+  "reuseExistingDependencies": true
+}

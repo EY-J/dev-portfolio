@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { MessageRow } from "@/features/cms/messages/types";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 import type { Message, MessageStatus } from "@/types/message";
 
 const MESSAGE_COLUMNS = "id, name, email, message, status, created_at";
@@ -18,7 +18,7 @@ function mapMessage(row: MessageRow): Message {
 }
 
 export async function getMessages(): Promise<Message[]> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("messages")
     .select(MESSAGE_COLUMNS)
@@ -35,7 +35,7 @@ export async function updateMessageStatus(
   id: string,
   status: MessageStatus
 ): Promise<Message> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("messages")
     .update({ status })

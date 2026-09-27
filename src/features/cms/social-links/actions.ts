@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthenticatedUser } from "@/features/cms/auth/service";
+import { getAdminUser } from "@/features/cms/auth/service";
 import {
   createSocialLink,
   deleteSocialLink,
@@ -13,7 +13,7 @@ import type {
   SocialLinkInput,
 } from "@/features/cms/social-links/types";
 
-const SOCIAL_LINKS_PATH = "/admin/dashboard/social-links";
+const SOCIAL_LINKS_PATH = "/admin/social-links";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -49,7 +49,7 @@ export async function createSocialLinkAction(
   _previousState: SocialLinkActionState,
   formData: FormData
 ): Promise<SocialLinkActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -72,7 +72,7 @@ export async function updateSocialLinkAction(
   _previousState: SocialLinkActionState,
   formData: FormData
 ): Promise<SocialLinkActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -97,7 +97,7 @@ export async function updateSocialLinkAction(
 export async function deleteSocialLinkAction(
   id: string
 ): Promise<SocialLinkActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthenticatedUser } from "@/features/cms/auth/service";
+import { getAdminUser } from "@/features/cms/auth/service";
 import {
   createBlogPost,
   deleteBlogPost,
@@ -13,7 +13,7 @@ import type {
   BlogPostInput,
 } from "@/features/cms/blog/types";
 
-const BLOG_PATH = "/admin/dashboard/blog";
+const BLOG_PATH = "/admin/blog";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -71,7 +71,7 @@ export async function createBlogPostAction(
   _previousState: BlogActionState,
   formData: FormData
 ): Promise<BlogActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -94,7 +94,7 @@ export async function updateBlogPostAction(
   _previousState: BlogActionState,
   formData: FormData
 ): Promise<BlogActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -119,7 +119,7 @@ export async function updateBlogPostAction(
 export async function deleteBlogPostAction(
   id: string
 ): Promise<BlogActionState> {
-  if (!(await getAuthenticatedUser())) {
+  if (!(await getAdminUser())) {
     return { success: false, message: "You must be signed in." };
   }
 

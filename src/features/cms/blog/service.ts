@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { BlogPostInput, BlogPostRow } from "@/features/cms/blog/types";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 import type { BlogPost } from "@/types/blog";
 
 const BLOG_POST_COLUMNS =
@@ -21,7 +21,7 @@ function mapBlogPost(row: BlogPostRow): BlogPost {
 }
 
 export async function getBlogPosts(): Promise<BlogPost[]> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("blog_posts")
     .select(BLOG_POST_COLUMNS)
@@ -35,7 +35,7 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
 }
 
 export async function createBlogPost(input: BlogPostInput): Promise<BlogPost> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("blog_posts")
     .insert({
@@ -59,7 +59,7 @@ export async function updateBlogPost(
   id: string,
   input: BlogPostInput
 ): Promise<BlogPost> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("blog_posts")
     .update({
@@ -82,7 +82,7 @@ export async function updateBlogPost(
 }
 
 export async function deleteBlogPost(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { error } = await supabase
     .from("blog_posts")
     .delete()

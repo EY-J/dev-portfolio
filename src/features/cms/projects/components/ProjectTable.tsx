@@ -1,5 +1,7 @@
-import ProjectForm from "@/features/cms/projects/components/ProjectForm";
+import Image from "next/image";
+
 import DeleteProjectButton from "@/features/cms/projects/components/DeleteProjectButton";
+import ProjectFormModal from "@/features/cms/projects/components/ProjectFormModal";
 import type { Project } from "@/types/project";
 
 interface ProjectTableProps {
@@ -12,38 +14,52 @@ export default function ProjectTable({ projects }: ProjectTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto">
-    <table className="w-full min-w-3xl border-collapse text-left text-sm">
-      <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
-        <tr>
-          <th className="px-4 py-3 font-medium" scope="col">Title</th>
-          <th className="px-4 py-3 font-medium" scope="col">Technologies</th>
-          <th className="px-4 py-3 font-medium" scope="col">Created</th>
-          <th className="px-4 py-3 font-medium" scope="col">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-200">
-        {projects.map((project) => (
-          <tr key={project.id}>
-            <td className="px-4 py-4 font-medium text-slate-950">{project.title}</td>
-            <td className="px-4 py-4 text-slate-600">{project.technologies.join(", ")}</td>
-            <td className="whitespace-nowrap px-4 py-4 text-slate-600">{project.createdAt.toLocaleDateString()}</td>
-            <td className="px-4 py-4">
-              <div className="flex items-start gap-2">
-              <details className="rounded-md border border-slate-200 px-3 py-1.5">
-                <summary className="cursor-pointer font-medium">Edit</summary>
-                <div className="mt-4 min-w-72 max-w-xl"><ProjectForm project={project} /></div>
-              </details>
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      {projects.map((project) => (
+        <article
+          className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white"
+          key={project.id}
+        >
+          <div className="relative aspect-video bg-slate-100">
+            <Image
+              alt={project.title}
+              className="object-cover"
+              fill
+              sizes="(min-width: 1280px) 25vw, (min-width: 640px) 40vw, 90vw"
+              src={project.imageUrl}
+              unoptimized
+            />
+          </div>
+          <div className="flex flex-1 flex-col p-4">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-semibold text-slate-950">{project.title}</h3>
+              <time className="shrink-0 text-xs text-slate-500">
+                {project.createdAt.toLocaleDateString()}
+              </time>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {project.description}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {project.technologies.map((technology) => (
+                <span
+                  className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+                  key={technology}
+                >
+                  {technology}
+                </span>
+              ))}
+            </div>
+            <div className="mt-auto flex items-start gap-2 pt-5">
+              <ProjectFormModal project={project} />
               <DeleteProjectButton
                 projectId={project.id}
                 projectTitle={project.title}
               />
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </div>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

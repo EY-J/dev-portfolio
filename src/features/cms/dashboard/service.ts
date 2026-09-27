@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 
 export interface DashboardStatsData {
   totalProjects: number | null;
@@ -9,7 +9,7 @@ export interface DashboardStatsData {
 }
 
 async function getTableCount(table: string): Promise<number | null> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { count, error } = await supabase
     .from(table)
     .select("*", { count: "exact", head: true });
@@ -21,7 +21,7 @@ export async function getDashboardStats(): Promise<DashboardStatsData> {
   const [totalProjects, totalBlogPosts, totalMessages] = await Promise.all([
     getTableCount("projects"),
     getTableCount("blog_posts"),
-    getTableCount("messages"),
+    getTableCount("conversations"),
   ]);
 
   return { totalProjects, totalBlogPosts, totalMessages };

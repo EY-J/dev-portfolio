@@ -1,9 +1,5 @@
-export default function ProjectsPage() {
-  return (
-    <main>
-      <h1>
-        Contact Page
-      </h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function ContactPage() {
+  redirect("/#contact");
 }

@@ -4,7 +4,7 @@ import type {
   SocialLinkInput,
   SocialLinkRow,
 } from "@/features/cms/social-links/types";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 import type { SocialLink } from "@/types/social-link";
 
 const SOCIAL_LINK_COLUMNS = "id, platform, url, icon, created_at";
@@ -20,7 +20,7 @@ function mapSocialLink(row: SocialLinkRow): SocialLink {
 }
 
 export async function getSocialLinks(): Promise<SocialLink[]> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("social_links")
     .select(SOCIAL_LINK_COLUMNS)
@@ -36,7 +36,7 @@ export async function getSocialLinks(): Promise<SocialLink[]> {
 export async function createSocialLink(
   input: SocialLinkInput
 ): Promise<SocialLink> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("social_links")
     .insert(input)
@@ -54,7 +54,7 @@ export async function updateSocialLink(
   id: string,
   input: SocialLinkInput
 ): Promise<SocialLink> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("social_links")
     .update(input)
@@ -70,7 +70,7 @@ export async function updateSocialLink(
 }
 
 export async function deleteSocialLink(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { error } = await supabase
     .from("social_links")
     .delete()

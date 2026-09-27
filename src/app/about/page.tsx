@@ -1,13 +1,5 @@
-import ProfileSection from "@/features/website/profile/components/ProfileSection";
-import { getPublicProfile } from "@/features/website/profile/service";
+import { redirect } from "next/navigation";
 
-export default async function AboutPage() {
-  const profile = await getPublicProfile();
-
-  return (
-    <main>
-      <h1>About</h1>
-      <ProfileSection profile={profile} />
-    </main>
-  );
+export default function AboutPage() {
+  redirect("/#about");
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { ProfileInput, ProfileRow } from "@/features/cms/profile/types";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 import type { Profile } from "@/types/profile";
 
 const PROFILE_COLUMNS =
@@ -21,7 +21,7 @@ function mapProfile(row: ProfileRow): Profile {
 }
 
 export async function getProfile(): Promise<Profile | null> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("profiles")
     .select(PROFILE_COLUMNS)
@@ -40,7 +40,7 @@ export async function updateProfile(
   id: string,
   input: ProfileInput
 ): Promise<Profile> {
-  const supabase = await createClient();
+  const supabase = await createAuthorizedCmsClient();
   const { data, error } = await supabase
     .from("profiles")
     .update({

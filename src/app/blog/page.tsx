@@ -1,9 +1,5 @@
-export default function ProjectsPage() {
-  return (
-    <main>
-      <h1>
-        Blog Page
-      </h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function BlogPage() {
+  redirect("/#blog");
 }

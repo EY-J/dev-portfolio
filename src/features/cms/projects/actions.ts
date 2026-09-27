@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthenticatedUser } from "@/features/cms/auth/service";
+import { getAdminUser } from "@/features/cms/auth/service";
 import {
   createProject,
   deleteProject,
@@ -15,7 +15,7 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 import { deleteProjectImage } from "@/lib/supabase/storage";
 
-const PROJECTS_PATH = "/admin/dashboard/projects";
+const PROJECTS_PATH = "/admin/projects";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -82,15 +82,15 @@ function parseProjectInput(
   };
 }
 
-async function isAuthenticated(): Promise<boolean> {
-  return Boolean(await getAuthenticatedUser());
+async function isAuthorizedAdmin(): Promise<boolean> {
+  return Boolean(await getAdminUser());
 }
 
 export async function createProjectAction(
   _previousState: ProjectActionState,
   formData: FormData
 ): Promise<ProjectActionState> {
-  if (!(await isAuthenticated())) {
+  if (!(await isAuthorizedAdmin())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -113,7 +113,7 @@ export async function updateProjectAction(
   _previousState: ProjectActionState,
   formData: FormData
 ): Promise<ProjectActionState> {
-  if (!(await isAuthenticated())) {
+  if (!(await isAuthorizedAdmin())) {
     return { success: false, message: "You must be signed in." };
   }
 
@@ -146,7 +146,7 @@ export async function updateProjectAction(
 export async function deleteProjectAction(
   id: string
 ): Promise<ProjectActionState> {
-  if (!(await isAuthenticated())) {
+  if (!(await isAuthorizedAdmin())) {
     return { success: false, message: "You must be signed in." };
   }
 
