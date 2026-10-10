@@ -35,7 +35,7 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
 }
 
 export async function createBlogPost(input: BlogPostInput): Promise<BlogPost> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { data, error } = await supabase
     .from("blog_posts")
     .insert({
@@ -59,7 +59,7 @@ export async function updateBlogPost(
   id: string,
   input: BlogPostInput
 ): Promise<BlogPost> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { data, error } = await supabase
     .from("blog_posts")
     .update({
@@ -82,7 +82,7 @@ export async function updateBlogPost(
 }
 
 export async function deleteBlogPost(id: string): Promise<void> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { error } = await supabase
     .from("blog_posts")
     .delete()

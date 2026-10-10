@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getAdminUser } from "@/features/cms/auth/service";
+import { normalizeAssetUrl, normalizeHttpUrl } from "@/features/portfolio/urls";
 import {
   createProject,
   deleteProject,
@@ -12,8 +13,6 @@ import type {
   ProjectActionState,
   ProjectInput,
 } from "@/features/cms/projects/types";
-import { createClient } from "@/lib/supabase/server";
-import { deleteProjectImage } from "@/lib/supabase/storage";
 
 const PROJECTS_PATH = "/admin/projects";
 const UUID_PATTERN =
@@ -22,15 +21,6 @@ const UUID_PATTERN =
 function readText(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function parseProjectInput(
@@ -57,15 +47,15 @@ function parseProjectInput(
     };
   }
 
-  if (!isHttpUrl(imageUrl)) {
+  if (!normalizeAssetUrl(imageUrl)) {
     return { input: null, error: "Upload a valid project image." };
   }
 
-  if (githubUrl && !isHttpUrl(githubUrl)) {
+  if (githubUrl && !normalizeHttpUrl(githubUrl)) {
     return { input: null, error: "Enter a valid GitHub URL." };
   }
 
-  if (liveUrl && !isHttpUrl(liveUrl)) {
+  if (liveUrl && !normalizeHttpUrl(liveUrl)) {
     return { input: null, error: "Enter a valid live URL." };
   }
 
@@ -102,7 +92,9 @@ export async function createProjectAction(
   try {
     await createProject(result.input);
     revalidatePath(PROJECTS_PATH);
-    return { success: true, message: "Project created." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Project saved to draft." };
   } catch {
     return { success: false, message: "Unable to create the project." };
   }
@@ -127,17 +119,13 @@ export async function updateProjectAction(
   }
 
   try {
-    const { project, previousImageUrl } = await updateProject(id, result.input);
-
-    if (previousImageUrl !== project.imageUrl) {
-      const supabase = await createClient();
-      await deleteProjectImage(previousImageUrl, supabase).catch(
-        () => undefined
-      );
-    }
+    await updateProject(id, result.input);
 
     revalidatePath(PROJECTS_PATH);
-    return { success: true, message: "Project updated." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    // The previous image may still be part of the latest published revision.
+    return { success: true, message: "Project saved to draft." };
   } catch {
     return { success: false, message: "Unable to update the project." };
   }
@@ -155,11 +143,11 @@ export async function deleteProjectAction(
   }
 
   try {
-    const project = await deleteProject(id);
-    const supabase = await createClient();
-    await deleteProjectImage(project.imageUrl, supabase).catch(() => undefined);
+    await deleteProject(id);
     revalidatePath(PROJECTS_PATH);
-    return { success: true, message: "Project deleted." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Project deleted from draft." };
   } catch {
     return { success: false, message: "Unable to delete the project." };
   }

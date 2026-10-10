@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
+import { clearCmsSession } from "@/features/cms/auth/cms-session";
 import { createClient } from "@/lib/supabase/server";
 
 export interface LogoutActionState {
@@ -10,12 +11,20 @@ export interface LogoutActionState {
 }
 
 export async function logout(): Promise<LogoutActionState> {
+  let cmsClearFailed = false;
+  try {
+    await clearCmsSession();
+  } catch (error) {
+    unstable_rethrow(error);
+    cmsClearFailed = true;
+  }
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      console.error("Admin logout failed", { category: "signout_error" });
+    if (error || cmsClearFailed) {
+      console.error("Admin logout failed", { category: error ? "signout_error" : "cms_cookie_error" });
       return { error: "Unable to log out right now. Please try again." };
     }
   } catch (error) {

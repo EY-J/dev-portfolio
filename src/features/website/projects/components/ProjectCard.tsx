@@ -10,7 +10,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" role="listitem">
       <Image
-        alt={project.title}
+        alt={project.imageAlt ?? project.title}
         className="aspect-video w-full bg-slate-100 object-cover"
         height={360}
         src={project.imageUrl}

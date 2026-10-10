@@ -51,7 +51,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">Your private conversations</h1>
         <p className="mt-4 max-w-lg text-sm leading-7 text-slate-600">Your conversations will appear here after you start one or open a private email link.</p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950" href="/#message-me">Start a conversation</Link>
+          <Link className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950" href="/">Start a conversation</Link>
           <Link className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-medium text-slate-800 transition hover:border-slate-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950" href="/messages/recover">Find my conversation</Link>
         </div>
       </main>

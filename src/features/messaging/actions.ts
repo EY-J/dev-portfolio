@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { addVisitorReply, createConversation, getConversationByPublicToken } from "@/features/messaging/service";
 import { notifyConversationCreated, notifyOwnerVisitorMessage } from "@/features/messaging/email/notifications";
-import { checkContactRateLimit, checkVisitorConversationRateLimit, checkVisitorReplyIpRateLimit } from "@/features/messaging/rate-limit/service";
+import { checkContactRateLimit, claimInquirySubmissionKey, checkVisitorConversationRateLimit, checkVisitorReplyIpRateLimit } from "@/features/messaging/rate-limit/service";
+import { VISITOR_MESSAGE_SESSION_COOKIE, visitorMessageCookieOptions } from "@/features/messaging/session/cookie";
+import { authorizeConversationForVisitorSession } from "@/features/messaging/session/service";
 import type { ConversationWithMessages } from "@/features/messaging/types";
 import { validateInquiry, validateReply } from "@/features/messaging/validation";
 
@@ -13,20 +16,35 @@ export interface MessagingActionState {
   error: string | null;
 }
 
+export type InquiryActionState =
+  | { status: "idle" | "success"; error: null }
+  | { status: "error" | "sent_without_session"; error: string };
+
 export async function submitInquiry(
-  _previousState: MessagingActionState,
+  _previousState: InquiryActionState,
   formData: FormData
-): Promise<MessagingActionState> {
+): Promise<InquiryActionState> {
   const validation = validateInquiry(formData);
-  if (!validation.value) return { error: validation.error };
+  if (!validation.value) return { status: "error", error: validation.error };
 
   let permitted: boolean;
   try {
     permitted = await checkContactRateLimit(validation.value.email);
   } catch {
-    return { error: "Unable to send your inquiry right now. Please try again later." };
+    return { status: "error", error: "Unable to send your inquiry right now. Please try again later." };
   }
-  if (!permitted) return { error: "Too many requests. Please wait a while and try again." };
+  if (!permitted) return { status: "error", error: "Too many requests. Please wait a while and try again." };
+
+  // This atomic, one-use bucket prevents concurrent submits of the same form.
+  // It is separate from the existing IP and email limits, which still apply.
+  try {
+    const key = formData.get("submissionKey");
+    if (typeof key !== "string" || !(await claimInquirySubmissionKey(key))) {
+      return { status: "error", error: "This message is already being sent. Please wait before trying again." };
+    }
+  } catch {
+    return { status: "error", error: "Unable to send your inquiry right now. Please try again later." };
+  }
 
   let token: string;
   let conversationId: string;
@@ -35,7 +53,18 @@ export async function submitInquiry(
     token = created.token;
     conversationId = created.conversationId;
   } catch {
-    return { error: "Unable to send your inquiry right now. Please try again." };
+    return { status: "error", error: "Unable to send your inquiry right now. Please try again." };
+  }
+
+  let sessionReady = false;
+  try {
+    // The cookie is scoped to /messages, so a submission on / starts a new
+    // session. The existing bearer email link can join prior conversations.
+    const session = await authorizeConversationForVisitorSession(conversationId, null);
+    (await cookies()).set(VISITOR_MESSAGE_SESSION_COOKIE, session.token, visitorMessageCookieOptions(session.expiresAt));
+    sessionReady = true;
+  } catch {
+    console.warn("Visitor message session setup failed", { kind: "initial_inquiry" });
   }
 
   await notifyConversationCreated({
@@ -51,7 +80,9 @@ export async function submitInquiry(
     visitorEmail: validation.value.email,
     subject: validation.value.subject,
   }, conversationId, true);
-  redirect(`/messages/${token}`, "replace");
+  return sessionReady
+    ? { status: "success", error: null }
+    : { status: "sent_without_session", error: "Message saved, but this browser could not open it. Use the private link in your confirmation email." };
 }
 
 export async function submitVisitorReply(

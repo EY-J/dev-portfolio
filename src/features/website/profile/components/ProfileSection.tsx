@@ -32,7 +32,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
       </div>
       {profile.avatarUrl ? (
         <Image
-          alt={profile.name}
+          alt={profile.avatarAlt ?? profile.name}
           className="aspect-square w-48 rounded-2xl object-cover shadow-sm md:w-full"
           height={240}
           src={profile.avatarUrl}

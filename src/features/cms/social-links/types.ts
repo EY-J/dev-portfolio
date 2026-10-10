@@ -1,7 +1,6 @@
 export interface SocialLinkInput {
   platform: string;
   url: string;
-  icon: string;
 }
 
 export interface SocialLinkRow {
@@ -15,4 +14,5 @@ export interface SocialLinkRow {
 export interface SocialLinkActionState {
   success: boolean;
   message: string | null;
+  fieldErrors?: { platform?: string; url?: string };
 }

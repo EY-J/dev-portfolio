@@ -25,6 +25,12 @@ Check each item in order. Use separate development and production projects where
 17. **Build:** Run `npx tsc --noEmit`, `npm run lint`, `npm test`, and `npm run build` with the intended deployment configuration. Investigate any warnings rather than suppressing them.
 18. **Smoke tests:** Run A–N below against the deployed domain with disposable accounts, messages, and images. Do not permanently delete valuable client data.
 
+### Portfolio presentation setting
+
+Before using CMS → Settings → Portfolio Appearance, review and apply `supabase/migrations/20261008000100_portfolio_settings.sql` after the existing admin allowlist and enforcement migrations. It creates one `main`-default row, enables RLS, permits public read of the safe presentation value, and limits updates to authenticated allowlisted admins. The migration has **not** been applied by this repository change. The public site continues to show Main until an admin explicitly makes Simple live. Follow the activation steps and A–J two-browser check in [portfolio-variants.md](portfolio-variants.md); switching later does not require a rebuild or redeploy.
+
+For the draft/publish architecture, deploy the publication-aware application first, then apply `20261009000100_site_publications.sql`, verify its RPCs and the public snapshot, and only then apply `20261009000200_site_publication_read_lockdown.sql`. Editing and publishing remain disabled between these two SQL phases. Review the exact checks in [site-publication-rollout.md](site-publication-rollout.md). Neither SQL phase was applied by this repository change.
+
 ### Environment variable inventory
 
 | Variable | Scope | Production value or requirement |
@@ -37,6 +43,7 @@ Check each item in order. Use separate development and production projects where
 | `PORTFOLIO_OWNER_EMAIL` | Server only, optional | Mailbox for inquiry and visitor-reply owner notices |
 | `APP_URL` | Server only | Exact public HTTPS origin; no localhost or path |
 | `RATE_LIMIT_SECRET` | Server only | Stable 64-character hex secret |
+| `CMS_SESSION_SECRET` | Server only | Stable base64url-encoded 32 random bytes; signs the absolute one-hour CMS session |
 | `RATE_LIMIT_PROXY_MODE` | Server only | `vercel` or `cloudflare` with a trusted deployment path |
 
 `NODE_ENV` and Vercel's `VERCEL` are platform/runtime values. The code does not need a public environment variable for the service key, Resend key, rate-limit secret, owner mailbox, or `APP_URL`. The `NEXT_PUBLIC_` key is usable in browsers only because database RLS and Storage policies enforce access. The server-only client files import `server-only`.
@@ -134,11 +141,11 @@ Check `private` is not listed as an exposed API schema, project signup settings,
 
 Use a disposable visitor mailbox, an allowlisted admin, and a separate authenticated non-admin. Keep raw conversation links private and do not paste them into logs or issue trackers.
 
-A. **Public:** Open `/` over HTTPS; confirm Home, About, all Projects, Blog/work, informational Contact, and separate Message Me sections. Confirm `/about`, `/projects`, `/blog`, and `/contact` redirect to the matching homepage anchors.
+A. **Public:** Open `/` over HTTPS; confirm the one-page portfolio, informational Contact, and floating Message Me trigger. Confirm `/about`, `/projects`, `/blog`, and `/contact` redirect to the homepage.
 B. **Signed out:** Open `/admin`; confirm the login form. Open `/admin/messages`; confirm it redirects to `/admin` without private data.
 C. **Admin:** Sign in as the intended UUID; confirm dashboard, Messages, CMS CRUD, and logout. After logout, reload `/admin` and confirm the login form remains.
 D. **Non-admin:** Sign in using a separate Auth user; confirm `/admin` denies access, protected routes and direct admin actions fail, and `admin:messages` private subscription is denied.
-E. **Message Me:** Send a disposable inquiry from `/#message-me`; confirm the existing conversation backend stores it. Follow the brief `/messages/[token]` bootstrap redirect to `/messages`; confirm the token is absent from the final address bar and the original token is stored only as a hash.
+E. **Message Me:** Open the widget on `/`, confirm the invitation hides after five seconds, and send a disposable inquiry. Confirm the URL stays `/` and the panel shows Message sent. Select View conversation and confirm `/messages` opens the new thread. Open the confirmation email's private `/messages/[token]` link separately and confirm it still redirects to `/messages`; the original token is stored only as a hash.
 F. **Visitor:** Check the messaging cookie is HttpOnly, SameSite=Lax, Secure, and scoped to `/messages`. Reply at `/messages`; confirm the thread updates, rate limits apply, and no token is accessible from JavaScript or browser storage.
 G. **Admin reply/Realtime:** Open visitor `/messages` and admin browsers together; send an admin reply, confirm the visitor page refreshes without exposing content in Broadcast payloads. Block Realtime briefly and verify **Refresh messages** still works.
 H. **Email:** Confirm inquiry confirmation, admin reply notification, optional owner notice, and their links all use the production HTTPS domain and reach a permitted real mailbox. No localhost link should appear.

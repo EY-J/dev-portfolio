@@ -8,13 +8,7 @@ export default async function ProtectedAdminLayout({
 }: Readonly<{ children: ReactNode }>) {
   const access = await getAdminAccess();
 
-  if (access.status === "signed_out") {
-    redirect("/admin");
-  }
-
-  if (access.status === "denied") {
-    return <main className="text-center"><h1 className="text-xl font-semibold">Access denied.</h1></main>;
-  }
+  if (access.status !== "allowed") redirect("/admin");
 
   return children;
 }

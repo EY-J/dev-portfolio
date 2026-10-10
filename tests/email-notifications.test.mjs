@@ -163,18 +163,25 @@ test("confirmation and admin notifications use deterministic keys and no reply b
 
 test("failed confirmation does not undo a saved visitor inquiry", async () => {
   let saved = false;
+  let cookie;
   const actions = load("src/features/messaging/actions.ts", {
     "next/cache": { revalidatePath: () => {} },
+    "next/headers": { cookies: async () => ({ set: (...args) => { cookie = args; } }) },
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
+    "@/features/messaging/session/cookie": { VISITOR_MESSAGE_SESSION_COOKIE: "portfolio_message_session", visitorMessageCookieOptions: (expires) => ({ httpOnly: true, path: "/messages", expires }) },
+    "@/features/messaging/session/service": { authorizeConversationForVisitorSession: async () => ({ token: "session-private-token", expiresAt: new Date() }) },
     "@/features/messaging/service": { createConversation: async () => { saved = true; return { conversationId: uuid, token: "private-token" }; } },
     "@/features/messaging/email/notifications": { notifyConversationCreated: async () => false, notifyOwnerVisitorMessage: async () => false },
-    "@/features/messaging/rate-limit/service": { checkContactRateLimit: async () => true },
+    "@/features/messaging/rate-limit/service": { checkContactRateLimit: async () => true, claimInquirySubmissionKey: async () => true },
     "@/features/messaging/validation": load("src/features/messaging/validation.ts"),
   });
   const form = new FormData();
   for (const [key, value] of Object.entries({ name: "Ada", email: "ada@example.com", subject: "Help", message: "Hello" })) form.set(key, value);
-  await assert.rejects(actions.submitInquiry({ error: null }, form), /redirected/);
+  form.set("submissionKey", "11111111-1111-4111-8111-111111111111");
+  assert.deepEqual(await actions.submitInquiry({ status: "idle", error: null }, form), { status: "success", error: null });
   assert.equal(saved, true);
+  assert.equal(cookie[0], "portfolio_message_session");
+  assert.equal(cookie[2].httpOnly, true);
 });
 
 test("failed admin notification reports saved reply without turning it into an error", async () => {
@@ -205,7 +212,10 @@ test("failed owner notification does not undo a saved visitor reply", async () =
   let notified = false;
   const actions = load("src/features/messaging/actions.ts", {
     "next/cache": { revalidatePath: () => {} },
+    "next/headers": { cookies: async () => ({}) },
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
+    "@/features/messaging/session/cookie": {},
+    "@/features/messaging/session/service": {},
     "@/features/messaging/service": {
       addVisitorReply: async () => { saved = true; return messageId; },
       getConversationByPublicToken: async () => ({ id: uuid, visitorName: "Ada", visitorEmail: "ada@example.com", subject: "Help" }),

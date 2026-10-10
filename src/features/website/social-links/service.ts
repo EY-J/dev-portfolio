@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { normalizeSocialUrl } from "@/features/portfolio/urls";
 
 export interface PublicSocialLink {
   label: string;
@@ -14,12 +15,7 @@ export async function getPublicSocialLinks(): Promise<PublicSocialLink[]> {
     .order("created_at", { ascending: true });
   if (error) throw new Error("Failed to load public links.");
   return (data ?? []).flatMap((link) => {
-    try {
-      const url = new URL(link.url);
-      if (url.protocol !== "https:" && url.protocol !== "http:") return [];
-      return [{ label: link.platform, href: url.href }];
-    } catch {
-      return [];
-    }
+    const href = normalizeSocialUrl(link.url);
+    return href ? [{ label: link.platform, href }] : [];
   });
 }

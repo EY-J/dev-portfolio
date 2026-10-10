@@ -1,0 +1,9 @@
+# Portfolio navigation and project categories
+
+This describes the Main Portfolio presentation when it is live at `/`. CMS Settings can select the Simple presentation at the same public URL; see [portfolio-variants.md](portfolio-variants.md).
+
+The public portfolio uses client state for the active top navigation control and project view. The AERON JOHN. wordmark returns to the hero; PROJECTS scrolls to Featured Projects; INFO scrolls to the Info content. The homepage initially shows up to three featured projects. VIEW ALL PROJECTS switches the same section to the complete category-filtered collection; Back to featured projects returns to the curated view. These controls stay on `/` without writing a path or hash. `/about`, `/projects`, `/blog`, and `/contact` redirect to `/` for older links.
+
+The public project reader returns projects newest first and has no featured, priority, or category field. `src/features/website/projects/featured.ts` selects two recent Web Development projects and one recent Shopify or Automation project when the data supports that mix, then fills any gaps from remaining real projects, capped at three. Fewer than three stored projects means fewer than three can be shown. `src/features/website/projects/categories.ts` is the single UI adapter: Shopify technologies map to Shopify; GoHighLevel, GHL, and automation tools map to Automation; everything else maps to Web Development. Category tabs appear only in the full collection. An empty category shows an empty state instead of sample projects.
+
+If categories become editorial CMS data, add a single required project category field with the values `web-development`, `shopify`, and `automation`, expose it through the existing public project reader, and replace the adapter. That later change would need its own CMS and database work; this UI phase does not alter either.

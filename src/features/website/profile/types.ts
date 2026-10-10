@@ -2,11 +2,10 @@ import type { Profile } from "@/types/profile";
 
 export type PublicProfile = Pick<
   Profile,
-  "id" | "name" | "title" | "bio" | "avatarUrl" | "resumeUrl"
->;
+  "name" | "title" | "bio" | "avatarUrl" | "resumeUrl"
+> & { avatarAlt?: string };
 
 export interface PublicProfileRow {
-  id: string;
   name: string;
   title: string;
   bio: string;

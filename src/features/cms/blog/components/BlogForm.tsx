@@ -1,17 +1,20 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useCmsActionToast } from "@/components/admin/CmsToastProvider";
 import {
   createBlogPostAction,
   updateBlogPostAction,
 } from "@/features/cms/blog/actions";
 import type { BlogActionState } from "@/features/cms/blog/types";
+import CmsImageField from "@/features/cms/media/components/CmsImageField";
 import type { BlogPost } from "@/types/blog";
 
 interface BlogFormProps {
   blogPost?: BlogPost;
+  initialMediaUrl?: string | null;
 }
 
 const initialState: BlogActionState = {
@@ -23,11 +26,13 @@ const fieldClassName =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-100";
 const labelClassName = "block text-sm font-medium text-slate-700";
 
-export default function BlogForm({ blogPost }: BlogFormProps) {
+export default function BlogForm({ blogPost, initialMediaUrl }: BlogFormProps) {
   const action = blogPost
     ? updateBlogPostAction.bind(null, blogPost.id)
     : createBlogPostAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [imageUrl, setImageUrl] = useState(initialMediaUrl ?? blogPost?.imageUrl ?? "");
+  useCmsActionToast(state);
   const prefix = blogPost ? `blog-${blogPost.id}` : "new-blog";
 
   return (
@@ -64,16 +69,7 @@ export default function BlogForm({ blogPost }: BlogFormProps) {
             required
           />
         </div>
-        <div className="space-y-1.5">
-          <label className={labelClassName} htmlFor={`${prefix}-image-url`}>Image URL</label>
-          <input
-            className={fieldClassName}
-            defaultValue={blogPost?.imageUrl}
-            id={`${prefix}-image-url`}
-            name="image_url"
-            type="url"
-          />
-        </div>
+        <CmsImageField allowRemove disabled={pending} id={`${prefix}-image`} label="Cover image" name="image_url" onChange={setImageUrl} value={imageUrl} />
         <div className="flex items-center gap-2">
           <input
             className="size-4 rounded border-slate-300"
@@ -82,7 +78,7 @@ export default function BlogForm({ blogPost }: BlogFormProps) {
             name="published"
             type="checkbox"
           />
-          <label className="text-sm font-medium text-slate-700" htmlFor={`${prefix}-published`}>Published</label>
+          <label className="text-sm font-medium text-slate-700" htmlFor={`${prefix}-published`}>Include on site after Publish changes</label>
         </div>
         <Button className="w-fit bg-slate-900 px-4 text-white hover:bg-slate-700" type="submit">
           {pending
@@ -92,11 +88,6 @@ export default function BlogForm({ blogPost }: BlogFormProps) {
               : "Create blog post"}
         </Button>
       </fieldset>
-      {state.message ? (
-        <p className={state.success ? "text-sm text-emerald-700" : "text-sm text-red-600"} aria-live="polite" role={state.success ? "status" : "alert"}>
-          {state.message}
-        </p>
-      ) : null}
     </form>
   );
 }

@@ -335,18 +335,222 @@ test("migration denies browser table/RPC access and checks mapping atomically", 
   assert.doesNotMatch(sql, /delete from public\.conversations|delete from public\.conversation_messages/i);
 });
 
-test("public navigation uses one-page anchors, Contact has no inquiry form, and legacy paths redirect", async () => {
+test("public navigation stays on one URL, Contact is informational, and legacy paths redirect", () => {
   const home = source("src/app/page.tsx");
-  assert.match(home, /<Contact links=\{socialLinks\}/);
-  assert.match(home, /id="message-me"[\s\S]*<InquiryForm/);
+  const experience = source("src/features/portfolio/components/PortfolioHome.tsx");
+  assert.match(home, /<PortfolioPresentation data=\{data\} variant=\{variant\}/);
+  assert.match(source("src/features/portfolio/components/PortfolioPresentation.tsx"), /<PortfolioHome profile=\{data\.profile\} projects=\{data\.projects\} socialLinks=\{data\.socialLinks\}/);
+  assert.match(experience, /<Contact links=\{socialLinks\}/);
+  assert.match(experience, /<MessageWidget openRequest=\{messageOpenRequest\}/);
+  assert.doesNotMatch(experience, /<InquiryForm|id="message-me"/);
+  assert.match(experience, /scrollIntoView/);
+  assert.match(experience, />AERON JOHN<span aria-hidden="true" className="portfolio-wordmark-dot">\.<\/span><\/button>/);
+  assert.match(experience, />PROJECTS<\/button>[\s\S]*>INFO<\/button>/);
+  assert.match(experience, /Switch to dark mode/);
+  assert.match(experience, /Switch to light mode/);
+  assert.match(experience, /portfolio-theme-toggle/);
+  assert.match(experience, /data-theme=\{theme\}/);
+  assert.match(experience, /id="info"/);
+  assert.doesNotMatch(experience, /portfolio-sidebar|portfolio-topnav[\s\S]*>ABOUT<\/button>/);
+  assert.doesNotMatch(experience, /router\.push|href="\/#/);
+  const publicStyles = source("src/app/globals.css");
+  assert.match(publicStyles, /--portfolio-bg: #F8F5F0/);
+  assert.match(publicStyles, /\.portfolio-shell\[data-theme="dark"\]/);
+  assert.doesNotMatch(publicStyles.match(/\.portfolio-header \{[^}]*\}/)?.[0] ?? "", /border-bottom/);
   assert.match(source("src/features/portfolio/components/Contact.tsx"), /Public profiles and ways to connect/);
   assert.doesNotMatch(source("src/features/portfolio/components/Contact.tsx"), /InquiryForm/);
-  for (const [route, anchor] of [["about", "about"], ["projects", "projects"], ["blog", "blog"], ["contact", "contact"]]) {
-    assert.match(source(`src/app/${route}/page.tsx`), new RegExp(`redirect\\("/\\#${anchor}"\\)`));
+  for (const route of ["about", "projects", "blog", "contact"]) {
+    assert.match(source(`src/app/${route}/page.tsx`), /redirect\("\/"\)/);
   }
-  assert.match(source("src/components/layout/Navbar.tsx"), /\/#message-me/);
+  assert.doesNotMatch(source("src/components/layout/Navbar.tsx"), /\/#/);
   assert.match(source("src/app/messages/page.tsx"), /Your private conversations/);
+  assert.doesNotMatch(source("src/app/messages/page.tsx"), /href="\/#/);
   assert.doesNotMatch(source("src/app/messages/page.tsx"), /public_token_hash|session_token_hash/);
+});
+
+test("floating widget has one compact form, invitation, keyboard close, and token-free success navigation", () => {
+  const widget = source("src/features/messaging/components/MessageWidget.tsx");
+  const styles = source("src/app/globals.css");
+  assert.match(widget, /aria-label="Message Aeron"/);
+  assert.match(widget, /Have something in mind\? Message me here\./);
+  assert.doesNotMatch(widget, /Start a private conversation\./);
+  assert.match(widget, /<span>MESSAGE ME<\/span>/);
+  assert.match(widget, /setTimeout\(\(\) => setInvitationVisible\(false\), 5000\)/);
+  assert.match(widget, /onClick=\{view === "closed" \? openPanel : closePanel\}/);
+  assert.match(widget, /event\.key === "Escape"/);
+  assert.match(widget, /aria-label="Close message form"/);
+  assert.deepEqual([...widget.matchAll(/<label>(Name|Email|Subject|Message)/g)].map((match) => match[1]), ["Name", "Email", "Subject", "Message"]);
+  assert.match(widget, /disabled=\{pending \|\| !submissionKey\}/);
+  assert.match(widget, /<h2 ref=\{successRef\} tabIndex=\{-1\}>Message sent\.<\/h2>/);
+  assert.match(widget, /href="\/messages">View conversation/);
+  assert.doesNotMatch(widget, /href=\{`\/messages\/\$\{/);
+  assert.match(styles, /\.message-widget \{ position: fixed/);
+  assert.match(styles, /\.message-widget-panel \{ width: min\(390px/);
+  assert.match(styles, /@media \(max-width: 640px\) \{[\s\S]*?\.message-widget-panel \{ width: calc\(100vw - 32px\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("initial inquiry authorizes /messages without returning either raw token or redirecting", async () => {
+  const { service } = sessionDatabase();
+  const claimed = new Set();
+  const cookieWrites = [];
+  const notifications = [];
+  let created = 0;
+  const actions = load("src/features/messaging/actions.ts", {
+    "next/cache": { revalidatePath: () => {} },
+    "next/headers": { cookies: async () => ({ set: (...args) => cookieWrites.push(args) }) },
+    "next/navigation": { redirect: () => { throw new Error("unexpected redirect"); } },
+    "@/features/messaging/service": { createConversation: async () => {
+      created++;
+      return { conversationId: idA, token: "original-secret-bearer" };
+    } },
+    "@/features/messaging/email/notifications": {
+      notifyConversationCreated: async (input) => { notifications.push(input); return true; },
+      notifyOwnerVisitorMessage: async () => true,
+    },
+    "@/features/messaging/rate-limit/service": {
+      checkContactRateLimit: async () => true,
+      claimInquirySubmissionKey: async (key) => {
+        if (claimed.has(key)) return false;
+        claimed.add(key);
+        return true;
+      },
+    },
+    "@/features/messaging/session/cookie": {
+      VISITOR_MESSAGE_SESSION_COOKIE: "portfolio_message_session",
+      visitorMessageCookieOptions: (expires) => ({ httpOnly: true, sameSite: "lax", path: "/messages", expires }),
+    },
+    "@/features/messaging/session/service": { authorizeConversationForVisitorSession: service.authorizeConversationForVisitorSession },
+    "@/features/messaging/validation": load("src/features/messaging/validation.ts"),
+  });
+  const form = new FormData();
+  for (const [key, value] of Object.entries({ name: "Ada", email: "ada@example.com", subject: "Website", message: "Hello", submissionKey: randomUUID() })) form.set(key, value);
+  const [first, duplicate] = await Promise.all([
+    actions.submitInquiry({ status: "idle", error: null }, form),
+    actions.submitInquiry({ status: "idle", error: null }, form),
+  ]);
+  assert.equal(first.status, "success");
+  assert.equal(duplicate.status, "error");
+  assert.deepEqual(Object.keys(first).sort(), ["error", "status"]);
+  assert.equal(created, 1);
+  assert.equal(notifications[0].token, "original-secret-bearer");
+  assert.equal(cookieWrites.length, 1);
+  assert.equal(cookieWrites[0][0], "portfolio_message_session");
+  assert.equal(cookieWrites[0][2].httpOnly, true);
+  assert.equal(cookieWrites[0][2].path, "/messages");
+  assert.deepEqual((await service.getVisitorSessionConversations(cookieWrites[0][1])).map(({ id }) => id), [idA]);
+  assert.doesNotMatch(JSON.stringify(first), /original-secret-bearer|session_token|conversationId/);
+});
+
+test("session setup failure reports a saved message without offering an unusable session link", async () => {
+  let emails = 0;
+  const actions = load("src/features/messaging/actions.ts", {
+    "next/cache": { revalidatePath: () => {} },
+    "next/headers": { cookies: async () => ({ set: () => { throw new Error("unexpected cookie"); } }) },
+    "next/navigation": { redirect: () => { throw new Error("unexpected redirect"); } },
+    "@/features/messaging/service": { createConversation: async () => ({ conversationId: idA, token: "original-secret-bearer" }) },
+    "@/features/messaging/email/notifications": {
+      notifyConversationCreated: async ({ token }) => { assert.equal(token, "original-secret-bearer"); emails++; },
+      notifyOwnerVisitorMessage: async () => {},
+    },
+    "@/features/messaging/rate-limit/service": { checkContactRateLimit: async () => true, claimInquirySubmissionKey: async () => true },
+    "@/features/messaging/session/cookie": { VISITOR_MESSAGE_SESSION_COOKIE: "portfolio_message_session", visitorMessageCookieOptions: () => ({ httpOnly: true, path: "/messages" }) },
+    "@/features/messaging/session/service": { authorizeConversationForVisitorSession: async () => { throw new Error("private database detail"); } },
+    "@/features/messaging/validation": load("src/features/messaging/validation.ts"),
+  });
+  const form = new FormData();
+  for (const [key, value] of Object.entries({ name: "Ada", email: "ada@example.com", subject: "Website", message: "Hello", submissionKey: randomUUID() })) form.set(key, value);
+  const previousWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const result = await actions.submitInquiry({ status: "idle", error: null }, form);
+    assert.equal(result.status, "sent_without_session");
+    assert.equal(emails, 1);
+    assert.doesNotMatch(JSON.stringify(result), /original-secret-bearer|private database detail/);
+  } finally { console.warn = previousWarn; }
+});
+
+test("project category adapter uses CMS technologies and keeps web development as the default", () => {
+  const { getProjectCategory, projectCategories } = load("src/features/website/projects/categories.ts");
+  const project = (technologies) => ({ technologies });
+  assert.deepEqual(projectCategories.map(({ id }) => id), ["web-development", "shopify", "automation"]);
+  assert.equal(getProjectCategory(project(["Next.js", "Supabase"])), "web-development");
+  assert.equal(getProjectCategory(project(["Shopify", "Liquid"])), "shopify");
+  assert.equal(getProjectCategory(project(["GoHighLevel", "CRM"])), "automation");
+  assert.equal(getProjectCategory(project(["GHL", "Workflows"])), "automation");
+  assert.equal(getProjectCategory(project([])), "web-development");
+});
+
+test("homepage featured selection is capped at three and favors two real web projects", () => {
+  const categories = load("src/features/website/projects/categories.ts");
+  const { selectFeaturedProjects } = load("src/features/website/projects/featured.ts", {
+    "@/features/website/projects/categories": categories,
+  });
+  const projects = [
+    { id: "s1", technologies: ["Shopify"] },
+    { id: "w1", technologies: ["Next.js"] },
+    { id: "a1", technologies: ["GoHighLevel"] },
+    { id: "w2", technologies: ["React"] },
+    { id: "w3", technologies: ["TypeScript"] },
+  ];
+  assert.deepEqual(selectFeaturedProjects(projects).map(({ id }) => id), ["w1", "w2", "s1"]);
+  assert.equal(selectFeaturedProjects(projects).length, 3);
+  assert.deepEqual(selectFeaturedProjects(projects.filter(({ id }) => id.startsWith("w"))).map(({ id }) => id), ["w1", "w2", "w3"]);
+  assert.deepEqual(selectFeaturedProjects(projects.slice(0, 1)).map(({ id }) => id), ["s1"]);
+  assert.deepEqual(selectFeaturedProjects([]), []);
+  assert.match(source("src/features/website/projects/service.ts"), /\.order\("created_at", \{ ascending: false \}\)/);
+});
+
+test("featured view and full archive share the homepage without introducing project routes", () => {
+  const home = source("src/features/portfolio/components/PortfolioHome.tsx");
+  const featured = source("src/features/website/projects/components/FeaturedProjectList.tsx");
+  const styles = source("src/app/globals.css");
+  assert.match(home, /showAllProjects \? \([\s\S]*<ProjectList projects=\{visibleProjects\}/);
+  assert.match(home, /<FeaturedProjectList projects=\{featuredProjects\}/);
+  assert.match(home, /VIEW ALL PROJECTS/);
+  assert.match(home, /Back to featured projects/);
+  assert.match(home, /projectCategories\.map/);
+  assert.match(featured, /alt=\{project\.imageAlt \?\? `Preview of \$\{project\.title\}`\}/);
+  assert.match(featured, /sizes="\(max-width: 700px\) 100vw, \(max-width: 1000px\) 50vw, 33vw"/);
+  assert.match(featured, /project\.liveUrl \? "View project" : "View code"/);
+  assert.match(featured, /target="_blank"/);
+  assert.match(featured, /role="listitem" tabIndex=\{0\}/);
+  assert.match(styles, /\.featured-project-list \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.featured-project \{[^}]*aspect-ratio: 4 \/ 5;[^}]*border-radius: 28px/);
+  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(styles, /\.featured-project:focus-within/);
+  assert.match(styles, /@media \(max-width: 1000px\) \{[\s\S]*?\.featured-project-list \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /@media \(max-width: 700px\) \{[\s\S]*?\.featured-project-list \{ grid-template-columns: 1fr/);
+  assert.match(styles, /@media \(hover: none\) \{[\s\S]*?\.featured-project-copy \{ pointer-events: auto/);
+  assert.doesNotMatch(home, /router\.push\("\/projects"\)|href="\/projects"/);
+});
+
+test("featured cards render three real project previews and existing CMS actions", () => {
+  const react = dependency("react");
+  const { renderToStaticMarkup } = dependency("react-dom/server");
+  const categories = load("src/features/website/projects/categories.ts");
+  const { selectFeaturedProjects } = load("src/features/website/projects/featured.ts", {
+    "@/features/website/projects/categories": categories,
+  });
+  const FeaturedProjectList = load("src/features/website/projects/components/FeaturedProjectList.tsx", {
+    "lucide-react": { ArrowUpRight: () => null },
+    "next/image": { default: ({ alt, src }) => react.createElement("img", { alt, src }) },
+    "@/features/website/projects/categories": categories,
+  }).default;
+  const projects = [
+    { id: "shop", title: "Storefront", description: "Store build", imageUrl: "/shop.jpg", technologies: ["Shopify"], liveUrl: "https://example.com/shop" },
+    { id: "web1", title: "Portfolio", description: "Web build", imageUrl: "/web1.jpg", technologies: ["Next.js"], githubUrl: "https://example.com/code" },
+    { id: "web2", title: "Dashboard", description: "Web interface", imageUrl: "/web2.jpg", technologies: ["React"] },
+    { id: "web3", title: "Fourth", description: "Should be absent", imageUrl: "/web3.jpg", technologies: ["TypeScript"] },
+  ];
+  const html = renderToStaticMarkup(react.createElement(FeaturedProjectList, { projects: selectFeaturedProjects(projects) }));
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 3);
+  assert.doesNotMatch(html, /Fourth|web3\.jpg/);
+  assert.match(html, /Preview of Portfolio/);
+  assert.match(html, /Preview of Storefront/);
+  assert.match(html, /View project/);
+  assert.match(html, /View code/);
+  assert.match(html, /Preview only/);
 });
 
 test("messages page reveals no thread without a session and rejects an unmapped selector", async () => {
@@ -368,19 +572,12 @@ test("messages page reveals no thread without a session and rejects an unmapped 
   assert.doesNotMatch(wrongSelection, /Conversation messages|Your reply/);
 });
 
-test("one-page portfolio still renders when optional public CMS reads fail", async () => {
-  const page = load("src/app/page.tsx", {
-    "next/link": { default: () => null },
-    "@/features/portfolio/components/Contact": { default: () => null },
-    "@/features/portfolio/components/Hero": { default: () => null },
-    "@/features/messaging/components/InquiryForm": { default: () => null },
-    "@/features/website/profile/components/ProfileSection": { default: () => null },
-    "@/features/website/profile/service": { getPublicProfile: async () => { throw new Error("unavailable"); } },
-    "@/features/website/projects/components/ProjectList": { default: () => null },
-    "@/features/website/projects/service": { getPublicProjects: async () => { throw new Error("unavailable"); } },
-    "@/features/website/social-links/service": { getPublicSocialLinks: async () => { throw new Error("unavailable"); } },
+test("shared portfolio data comes from one published site read", async () => {
+  let reads = 0;
+  const published = { profile: null, projects: [], socialLinks: [], blogPosts: [] };
+  const data = load("src/features/portfolio/data.ts", {
+    "@/features/portfolio/site-publication": { getPublishedSite: async () => { reads++; return { variant: "main", data: published }; } },
   });
-  const rendered = JSON.stringify(await page.default());
-  for (const anchor of ["projects", "blog", "message-me"]) assert.match(rendered, new RegExp(`"id":"${anchor}"`));
-  assert.match(rendered, /Start a private conversation/);
+  assert.deepEqual(await data.getPortfolioData(), published);
+  assert.equal(reads, 1);
 });

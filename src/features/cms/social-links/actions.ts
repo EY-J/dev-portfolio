@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { getAdminUser } from "@/features/cms/auth/service";
+import { normalizeSocialUrl } from "@/features/portfolio/urls";
+import { getSocialPlatformKey } from "@/features/cms/social-links/platforms";
 import {
   createSocialLink,
   deleteSocialLink,
@@ -23,26 +25,28 @@ function readText(formData: FormData, name: string): string {
 }
 
 function parseSocialLinkInput(
-  formData: FormData
-): { input: SocialLinkInput; error: null } | { input: null; error: string } {
+  formData: FormData,
+  allowLegacy = false,
+): { input: SocialLinkInput; error: null } | { input: null; error: SocialLinkActionState } {
   const platform = readText(formData, "platform");
   const url = readText(formData, "url");
-  const icon = readText(formData, "icon");
-
-  if (!platform || !url || !icon) {
-    return { input: null, error: "Platform, URL, and icon are required." };
+  const key = getSocialPlatformKey(platform);
+  const fieldErrors = {
+    ...(!platform || (!key && !allowLegacy) ? { platform: "Choose a platform." } : {}),
+    ...(!normalizeSocialUrl(url) ? { url: "Enter a valid URL." } : {}),
+  };
+  if (Object.keys(fieldErrors).length) {
+    return { input: null, error: { success: false, message: "Check the highlighted fields.", fieldErrors } };
   }
+  return { input: { platform: key ?? platform, url }, error: null };
+}
 
-  try {
-    const parsedUrl = new URL(url);
-    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-      throw new Error();
-    }
-  } catch {
-    return { input: null, error: "Enter a valid URL." };
+function saveError(error: unknown, fallback: string): SocialLinkActionState {
+  if (error instanceof Error && error.message === "DUPLICATE_SOCIAL_PLATFORM") {
+    const message = "A link for this platform already exists.";
+    return { success: false, message, fieldErrors: { platform: message } };
   }
-
-  return { input: { platform, url, icon }, error: null };
+  return { success: false, message: fallback };
 }
 
 export async function createSocialLinkAction(
@@ -55,15 +59,17 @@ export async function createSocialLinkAction(
 
   const result = parseSocialLinkInput(formData);
   if (!result.input) {
-    return { success: false, message: result.error };
+    return result.error;
   }
 
   try {
     await createSocialLink(result.input);
     revalidatePath(SOCIAL_LINKS_PATH);
-    return { success: true, message: "Social link created." };
-  } catch {
-    return { success: false, message: "Unable to create the social link." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Social link added." };
+  } catch (error) {
+    return saveError(error, "Unable to save social link.");
   }
 }
 
@@ -80,17 +86,19 @@ export async function updateSocialLinkAction(
     return { success: false, message: "Invalid social link identifier." };
   }
 
-  const result = parseSocialLinkInput(formData);
+  const result = parseSocialLinkInput(formData, true);
   if (!result.input) {
-    return { success: false, message: result.error };
+    return result.error;
   }
 
   try {
     await updateSocialLink(id, result.input);
     revalidatePath(SOCIAL_LINKS_PATH);
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
     return { success: true, message: "Social link updated." };
-  } catch {
-    return { success: false, message: "Unable to update the social link." };
+  } catch (error) {
+    return saveError(error, "Unable to save social link.");
   }
 }
 
@@ -108,8 +116,10 @@ export async function deleteSocialLinkAction(
   try {
     await deleteSocialLink(id);
     revalidatePath(SOCIAL_LINKS_PATH);
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
     return { success: true, message: "Social link deleted." };
   } catch {
-    return { success: false, message: "Unable to delete the social link." };
+    return { success: false, message: "Unable to delete social link." };
   }
 }

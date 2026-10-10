@@ -2,7 +2,16 @@ import type { ReactNode } from "react";
 
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import CmsToastProvider from "@/components/admin/CmsToastProvider";
 import { getAdminAccess } from "@/features/cms/auth/service";
+import { getSitePublicationStatus, type SitePublicationStatus } from "@/features/portfolio/site-publication";
+
+const unavailableStatus: SitePublicationStatus = {
+  available: false,
+  hasUnpublishedChanges: false,
+  publishedAt: null,
+  publishedVariant: "main",
+};
 
 export default async function AdminLayout({
   children,
@@ -17,13 +26,17 @@ export default async function AdminLayout({
     );
   }
 
+  const publicationStatus = await getSitePublicationStatus().catch(() => unavailableStatus);
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-950 md:flex-row">
-      <AdminSidebar />
-      <div className="min-w-0 flex-1">
-        <AdminHeader />
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+    <CmsToastProvider>
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-950 md:flex-row">
+        <AdminSidebar />
+        <div className="min-w-0 flex-1">
+          <AdminHeader publicationStatus={publicationStatus} />
+          <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        </div>
       </div>
-    </div>
+    </CmsToastProvider>
   );
 }

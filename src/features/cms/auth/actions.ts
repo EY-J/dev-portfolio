@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { authenticateWithPassword, getAdminAccess } from "@/features/cms/auth/service";
+import { establishCmsSession } from "@/features/cms/auth/cms-session";
+import { authenticateWithPassword, getAdminIdentityForLogin } from "@/features/cms/auth/service";
 
 export interface LoginActionState {
   success: boolean;
@@ -42,11 +43,13 @@ export async function login(
   }
 
   try {
-    if ((await getAdminAccess()).status !== "allowed") {
+    const admin = await getAdminIdentityForLogin();
+    if (!admin) {
       return { success: false, error: "Access denied." };
     }
+    await establishCmsSession(admin.id);
   } catch {
-    return { success: false, error: "Unable to verify access right now." };
+    return { success: false, error: "Unable to complete CMS sign-in right now." };
   }
 
   revalidatePath("/admin", "layout");

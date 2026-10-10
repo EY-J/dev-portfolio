@@ -5,6 +5,7 @@ export const PUBLIC_RATE_LIMITS = {
     ip: { scope: "contact:ip", max: 5, windowSeconds: 3600 },
     email: { scope: "contact:email", max: 3, windowSeconds: 3600 },
   },
+  inquirySubmission: { scope: "contact:email", max: 1, windowSeconds: 600 },
   recovery: {
     ip: { scope: "recovery:ip", max: 10, windowSeconds: 3600 },
     email: { scope: "recovery:email", max: 3, windowSeconds: 3600 },

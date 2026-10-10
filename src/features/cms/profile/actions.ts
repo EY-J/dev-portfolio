@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { getAdminUser } from "@/features/cms/auth/service";
-import { updateProfile } from "@/features/cms/profile/service";
+import { normalizeAssetUrl } from "@/features/portfolio/urls";
+import { createProfile, updateProfile } from "@/features/cms/profile/service";
 import type {
   ProfileActionState,
   ProfileInput,
@@ -18,15 +19,6 @@ function readText(formData: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 function parseProfileInput(
   formData: FormData
 ): { input: ProfileInput; error: null } | { input: null; error: string } {
@@ -34,17 +26,26 @@ function parseProfileInput(
   const title = readText(formData, "title");
   const bio = readText(formData, "bio");
   const avatarUrl = readText(formData, "avatar_url");
+  const avatarRemoved = formData.get("avatar_image_removed") === "1";
   const resumeUrl = readText(formData, "resume_url");
 
-  if (!name || !title || !bio) {
-    return { input: null, error: "Name, title, and bio are required." };
+  if (!name || !title) {
+    return { input: null, error: "Full name and professional title are required." };
   }
 
-  if (avatarUrl && !isHttpUrl(avatarUrl)) {
+  if (name.length > 120 || title.length > 160 || bio.length > 5000) {
+    return { input: null, error: "Profile text is too long." };
+  }
+
+  if (avatarUrl.length > 2000 || resumeUrl.length > 2000) {
+    return { input: null, error: "Profile URL is too long." };
+  }
+
+  if (avatarUrl && !normalizeAssetUrl(avatarUrl)) {
     return { input: null, error: "Enter a valid avatar URL." };
   }
 
-  if (resumeUrl && !isHttpUrl(resumeUrl)) {
+  if (resumeUrl && !normalizeAssetUrl(resumeUrl)) {
     return { input: null, error: "Enter a valid resume URL." };
   }
 
@@ -53,11 +54,37 @@ function parseProfileInput(
       name,
       title,
       bio,
-      avatarUrl: avatarUrl || undefined,
+      avatarUrl: avatarUrl || (avatarRemoved ? "" : undefined),
       resumeUrl: resumeUrl || undefined,
     },
     error: null,
   };
+}
+
+function revalidateProfilePages() {
+  revalidatePath(PROFILE_PATH);
+  revalidatePath("/authpreview");
+  revalidatePath("/admin", "layout");
+}
+
+export async function createProfileAction(
+  _previousState: ProfileActionState,
+  formData: FormData
+): Promise<ProfileActionState> {
+  if (!(await getAdminUser())) {
+    return { success: false, message: "You must be signed in." };
+  }
+
+  const result = parseProfileInput(formData);
+  if (!result.input) return { success: false, message: result.error };
+
+  try {
+    await createProfile(result.input);
+    revalidateProfilePages();
+    return { success: true, message: "Profile saved to draft." };
+  } catch {
+    return { success: false, message: "Unable to create the profile. Refresh the page and try again." };
+  }
 }
 
 export async function updateProfileAction(
@@ -80,8 +107,8 @@ export async function updateProfileAction(
 
   try {
     await updateProfile(id, result.input);
-    revalidatePath(PROFILE_PATH);
-    return { success: true, message: "Profile updated." };
+    revalidateProfilePages();
+    return { success: true, message: "Profile saved to draft." };
   } catch {
     return { success: false, message: "Unable to update the profile." };
   }

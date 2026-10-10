@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,18 @@ import type { Project } from "@/types/project";
 
 interface ProjectFormModalProps {
   project?: Project;
+  initialMediaUrl?: string | null;
 }
 
-export default function ProjectFormModal({ project }: ProjectFormModalProps) {
+export default function ProjectFormModal({ project, initialMediaUrl }: ProjectFormModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [formKey, setFormKey] = useState(0);
   const router = useRouter();
   const isEditing = Boolean(project);
+
+  useEffect(() => {
+    if (initialMediaUrl && !project && dialogRef.current && !dialogRef.current.open) dialogRef.current.showModal();
+  }, [initialMediaUrl, project]);
 
   function openModal() {
     dialogRef.current?.showModal();
@@ -71,6 +76,7 @@ export default function ProjectFormModal({ project }: ProjectFormModalProps) {
             key={`${project?.id ?? "new"}-${formKey}`}
             onSuccess={handleSuccess}
             project={project}
+            initialMediaUrl={initialMediaUrl}
           />
         </div>
       </dialog>

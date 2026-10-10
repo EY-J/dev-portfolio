@@ -29,6 +29,16 @@ export async function checkContactRateLimit(email: string) {
   return checkEmailAndIp(email, PUBLIC_RATE_LIMITS.contact);
 }
 
+export async function claimInquirySubmissionKey(key: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) {
+    throw new Error("inquiry_submission_key_invalid");
+  }
+  const rule = PUBLIC_RATE_LIMITS.inquirySubmission;
+  // The deployed RPC accepts the existing contact scopes. Prefixing the
+  // identifier keeps this bucket separate from normalized email buckets.
+  return consume(rule, createRateLimitKey(rule.scope, `submission:${key.toLowerCase()}`));
+}
+
 export async function checkRecoveryRateLimit(email: string) {
   return checkEmailAndIp(email, PUBLIC_RATE_LIMITS.recovery);
 }

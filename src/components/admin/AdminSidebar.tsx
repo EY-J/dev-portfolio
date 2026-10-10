@@ -3,9 +3,9 @@
 import {
   BriefcaseBusiness,
   ChevronDown,
-  FileText,
   House,
   Inbox,
+  Images,
   Link2,
   Search,
   Settings,
@@ -24,7 +24,8 @@ const workspaceNavigationItems = [
   { href: "/admin/projects", icon: BriefcaseBusiness, label: "Projects" },
   { href: "/admin/profile", icon: UserRound, label: "Profile" },
   { href: "/admin/social-links", icon: Link2, label: "Social Links" },
-  { href: "/admin/blog", icon: FileText, label: "Blog" },
+  { href: "/admin/experience", icon: BriefcaseBusiness, label: "Experience" },
+  { href: "/admin/media", icon: Images, label: "Media" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { useCmsToast } from "@/components/admin/CmsToastProvider";
 import { Button } from "@/components/ui/button";
 import { deleteBlogPostAction } from "@/features/cms/blog/actions";
 import BlogForm from "@/features/cms/blog/components/BlogForm";
@@ -14,7 +15,7 @@ interface BlogTableProps {
 
 export default function BlogTable({ blogPosts }: BlogTableProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const notify = useCmsToast();
   const [pending, startTransition] = useTransition();
 
   function handleDelete(id: string, title: string) {
@@ -22,17 +23,17 @@ export default function BlogTable({ blogPosts }: BlogTableProps) {
       return;
     }
 
-    setError(null);
     startTransition(async () => {
       try {
         const result = await deleteBlogPostAction(id);
         if (!result.success) {
-          setError(result.message);
+          notify("error", result.message ?? "Unable to delete the blog post.");
           return;
         }
+        notify("success", result.message ?? "Blog post deleted.");
         router.refresh();
       } catch {
-        setError("Unable to delete the blog post.");
+        notify("error", "Unable to delete the blog post.");
       }
     });
   }
@@ -59,7 +60,7 @@ export default function BlogTable({ blogPosts }: BlogTableProps) {
             <tr key={blogPost.id}>
               <td className="px-4 py-4 font-medium">{blogPost.title}</td>
               <td className="px-4 py-4 text-slate-600">{blogPost.slug}</td>
-              <td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{blogPost.published ? "Published" : "Draft"}</span></td>
+              <td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{blogPost.published ? "Included in draft site" : "CMS only"}</span></td>
               <td className="whitespace-nowrap px-4 py-4 text-slate-600">{blogPost.createdAt.toLocaleDateString()}</td>
               <td className="px-4 py-4">
                 <div className="flex items-start gap-2">
@@ -82,11 +83,6 @@ export default function BlogTable({ blogPosts }: BlogTableProps) {
         </tbody>
       </table>
       </div>
-      {error ? (
-        <p className="mt-3 text-sm text-red-600" aria-live="polite" role="alert">
-          {error}
-        </p>
-      ) : null}
     </>
   );
 }

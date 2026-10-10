@@ -1,4 +1,5 @@
 import type { PublicSocialLink } from "@/features/website/social-links/service";
+import { getSocialPlatformLabel, SocialIcon } from "@/features/cms/social-links/platforms";
 
 export default function Contact({ links }: { links: PublicSocialLink[] }) {
   return (
@@ -11,7 +12,7 @@ export default function Contact({ links }: { links: PublicSocialLink[] }) {
           <ul className="mt-7 flex flex-wrap gap-3">
             {links.map((link) => (
               <li key={`${link.label}:${link.href}`}>
-                <a className="inline-flex rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900" href={link.href} rel="noreferrer" target="_blank">{link.label}</a>
+                <a className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900" href={link.href} rel="noopener noreferrer" target="_blank"><SocialIcon platform={link.label} size={16} />{getSocialPlatformLabel(link.label)}<span className="sr-only"> (opens in a new tab)</span></a>
               </li>
             ))}
           </ul>

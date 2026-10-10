@@ -1,9 +1,11 @@
 import ProjectFormModal from "@/features/cms/projects/components/ProjectFormModal";
 import ProjectTable from "@/features/cms/projects/components/ProjectTable";
 import { getProjects } from "@/features/cms/projects/service";
+import { selectedMediaUrl } from "@/features/cms/media/paths";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ media?: string }> }) {
   const projects = await getProjects();
+  const selectedMedia = selectedMediaUrl((await searchParams).media);
 
   return (
     <main className="mx-auto max-w-7xl space-y-6">
@@ -14,7 +16,7 @@ export default async function ProjectsPage() {
             Create and maintain the projects shown in your portfolio.
           </p>
         </div>
-        <ProjectFormModal />
+        <ProjectFormModal initialMediaUrl={selectedMedia} />
       </div>
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="mb-5 text-lg font-semibold">Existing projects</h2>

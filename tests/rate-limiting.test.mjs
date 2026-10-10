@@ -228,6 +228,20 @@ test("rate-limit RPC errors fail closed", async () => {
   await assert.rejects(setup.service.checkVisitorReplyIpRateLimit(), /rate_limit_unavailable/);
 });
 
+test("inquiry submission key is single use through the atomic limiter", async () => {
+  const setup = limiterSetup();
+  const key = "11111111-1111-4111-8111-111111111111";
+  assert.equal(await setup.service.claimInquirySubmissionKey(key), true);
+  assert.equal(await setup.service.claimInquirySubmissionKey(key), false);
+  assert.equal(setup.calls.at(-1).p_scope, "contact:email");
+  assert.equal(setup.calls.at(-1).p_limit, 1);
+  assert.doesNotMatch(setup.calls.at(-1).p_key_hash, /11111111/);
+  assert.notEqual(setup.calls.at(-1).p_key_hash, withSecret(() => identity().createRateLimitKey("contact:email", key)));
+  assert.match(fs.readFileSync(path.join(root, "supabase/migrations/20260926000400_public_rate_limits.sql"), "utf8"), /'contact:ip', 'contact:email'/);
+  assert.equal(await setup.service.claimInquirySubmissionKey("22222222-2222-4222-8222-222222222222"), true);
+  await assert.rejects(setup.service.claimInquirySubmissionKey("invalid"), /invalid/);
+});
+
 function inquiryForm() {
   const form = new FormData();
   for (const [key, value] of Object.entries({ name: "Ada", email: "ada@example.com", subject: "Help", message: "Hello" })) form.set(key, value);
@@ -237,7 +251,10 @@ function inquiryForm() {
 function publicActions(rate, messaging, notifications = {}) {
   return load("src/features/messaging/actions.ts", {
     "next/cache": { revalidatePath: () => {} },
+    "next/headers": { cookies: async () => ({}) },
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
+    "@/features/messaging/session/cookie": {},
+    "@/features/messaging/session/service": {},
     "@/features/messaging/rate-limit/service": rate,
     "@/features/messaging/service": messaging,
     "@/features/messaging/email/notifications": notifications,

@@ -19,6 +19,9 @@ function load(relativePath, mocks = {}) {
   const loaded = { exports: {} };
   new Function("require", "module", "exports", compiled)((name) => {
     if (name === "server-only") return {};
+    if (name === "@/features/portfolio/urls") return load("src/features/portfolio/urls.ts");
+    if (name === "@/features/cms/social-links/platforms") return load("src/features/cms/social-links/platforms.tsx");
+    if (name === "@/lib/supabase/admin" && !Object.hasOwn(mocks, name)) return {};
     return Object.hasOwn(mocks, name) ? mocks[name] : dependency(name);
   }, loaded, loaded.exports);
   return loaded.exports;
@@ -33,6 +36,7 @@ function authService(user, allowed, rpcError = null) {
   };
   const service = load("src/features/cms/auth/service.ts", {
     "@/lib/supabase/server": { createClient: async () => client },
+    "@/features/cms/auth/cms-session": { getCmsSessionUserId: async () => user?.id ?? null },
   });
   return { service, calls };
 }
@@ -64,13 +68,17 @@ test("admin authorization errors fail closed and revocation is checked on the ne
     auth: { getUser: async () => ({ data: { user: { id: adminId } }, error: null }) },
     rpc: async () => ({ data: allowed, error: null }),
   };
-  const service = load("src/features/cms/auth/service.ts", { "@/lib/supabase/server": { createClient: async () => client } });
+  const service = load("src/features/cms/auth/service.ts", {
+    "@/lib/supabase/server": { createClient: async () => client },
+    "@/features/cms/auth/cms-session": { getCmsSessionUserId: async () => adminId },
+  });
   assert.equal((await service.getAdminAccess()).status, "allowed");
   allowed = false;
   assert.equal((await service.getAdminAccess()).status, "denied");
 
   const throwing = load("src/features/cms/auth/service.ts", {
     "@/lib/supabase/server": { createClient: async () => { throw new Error("database detail"); } },
+    "@/features/cms/auth/cms-session": { getCmsSessionUserId: async () => adminId },
   });
   assert.equal((await throwing.getAdminAccess()).status, "denied");
 });
@@ -80,6 +88,7 @@ test("Next.js request-time control flow is not swallowed by the authorization ch
   const service = load("src/features/cms/auth/service.ts", {
     "next/navigation": { unstable_rethrow: (error) => { if (error === frameworkError) throw error; } },
     "@/lib/supabase/server": { createClient: async () => { throw frameworkError; } },
+    "@/features/cms/auth/cms-session": { getCmsSessionUserId: async () => adminId },
   });
   await assert.rejects(service.getAdminAccess(), /NEXT_DYNAMIC_RENDER/);
 });
@@ -99,8 +108,7 @@ test("signed-in non-admin cannot render dashboard data or protected children", a
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
     "@/features/cms/auth/service": { getAdminAccess: async () => ({ status: "denied", user: null }) },
   });
-  assert.doesNotMatch(JSON.stringify(await protectedLayout.default({ children: "SECRET CMS DATA" })), /SECRET CMS DATA/);
-  assert.match(JSON.stringify(await protectedLayout.default({ children: "SECRET CMS DATA" })), /Access denied/);
+  await assert.rejects(protectedLayout.default({ children: "SECRET CMS DATA" }), /redirected/);
 });
 
 test("signed-out protected route redirects; authorized admin receives protected content", async () => {
@@ -118,7 +126,7 @@ test("authorized admin root loads dashboard data", async () => {
     "@/features/cms/auth/service": { getAdminAccess: async () => ({ status: "allowed", user: { id: adminId } }) },
     "@/features/cms/auth/components/LoginForm": { default: () => null },
     "@/features/cms/dashboard/components/DashboardStats": { default: () => null },
-    "@/features/cms/dashboard/service": { getDashboardStats: async () => { reads++; return { totalProjects: 1, totalBlogPosts: 2, totalMessages: 3 }; } },
+    "@/features/cms/dashboard/service": { getDashboardStats: async () => { reads++; return { totalProjects: 1, totalExperiences: 2, totalMessages: 3 }; } },
   });
   assert.match(JSON.stringify(await page.default()), /Dashboard/);
   assert.equal(reads, 1);
@@ -131,8 +139,9 @@ test("sign-in never provisions a new admin and rejects authenticated non-admin",
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
     "@/features/cms/auth/service": {
       authenticateWithPassword: async () => ({ success: true }),
-      getAdminAccess: async () => { calls++; return { status: "denied", user: null }; },
+      getAdminIdentityForLogin: async () => { calls++; return null; },
     },
+    "@/features/cms/auth/cms-session": { establishCmsSession: async () => { throw new Error("unexpected session"); } },
   });
   const form = new FormData(); form.set("email", "person@example.com"); form.set("password", "correct-password");
   const result = await actions.login({ success: false, error: null }, form);
@@ -144,17 +153,20 @@ test("sign-in never provisions a new admin and rejects authenticated non-admin",
 
 test("authorized sign-in keeps the existing admin redirect", async () => {
   let revalidated = 0;
+  let establishedFor = null;
   const actions = load("src/features/cms/auth/actions.ts", {
     "next/cache": { revalidatePath: () => { revalidated++; } },
     "next/navigation": { redirect: () => { throw new Error("redirected"); } },
     "@/features/cms/auth/service": {
       authenticateWithPassword: async () => ({ success: true }),
-      getAdminAccess: async () => ({ status: "allowed", user: { id: adminId } }),
+      getAdminIdentityForLogin: async () => ({ id: adminId }),
     },
+    "@/features/cms/auth/cms-session": { establishCmsSession: async (id) => { establishedFor = id; } },
   });
   const form = new FormData(); form.set("email", "owner@example.com"); form.set("password", "correct-password");
   await assert.rejects(actions.login({ success: false, error: null }, form), /redirected/);
   assert.equal(revalidated, 1);
+  assert.equal(establishedFor, adminId);
 });
 
 test("logout signs out before redirect and the next admin check is signed out", async () => {
@@ -173,19 +185,22 @@ test("logout signs out before redirect and the next admin check is signed out", 
       redirect: (path) => { calls.push(`redirect:${path}`); throw new Error("redirected"); },
     },
     "@/lib/supabase/server": { createClient: async () => client },
+    "@/features/cms/auth/cms-session": { clearCmsSession: async () => { calls.push("clearCmsSession"); } },
   });
   const service = load("src/features/cms/auth/service.ts", {
     "@/lib/supabase/server": { createClient: async () => client },
+    "@/features/cms/auth/cms-session": { getCmsSessionUserId: async () => user?.id ?? null },
   });
 
   assert.equal((await service.getAdminAccess()).status, "allowed");
   await assert.rejects(actions.logout(), /redirected/);
-  assert.deepEqual(calls, ["signOut", "revalidate:/admin:layout", "redirect:/admin"]);
+  assert.deepEqual(calls, ["clearCmsSession", "signOut", "revalidate:/admin:layout", "redirect:/admin"]);
   assert.equal((await service.getAdminAccess()).status, "signed_out");
 });
 
 test("failed logout returns a safe error without redirecting", async () => {
   let redirected = false;
+  let cmsCleared = false;
   const logged = [];
   const actions = load("src/features/cms/auth/logout.ts", {
     "next/cache": { revalidatePath: () => { throw new Error("should not revalidate"); } },
@@ -196,14 +211,34 @@ test("failed logout returns a safe error without redirecting", async () => {
     "@/lib/supabase/server": {
       createClient: async () => ({ auth: { signOut: async () => ({ error: { message: "provider detail" } }) } }),
     },
+    "@/features/cms/auth/cms-session": { clearCmsSession: async () => { cmsCleared = true; } },
   });
   const originalError = console.error;
   console.error = (...args) => { logged.push(args); };
   try {
     assert.deepEqual(await actions.logout(), { error: "Unable to log out right now. Please try again." });
     assert.equal(redirected, false);
+    assert.equal(cmsCleared, true);
     assert.equal(logged.length, 1);
     assert.equal(JSON.stringify(logged).includes("provider detail"), false);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("logout attempts Supabase sign-out even if CMS cookie clearing fails", async () => {
+  let signedOut = false;
+  const actions = load("src/features/cms/auth/logout.ts", {
+    "next/cache": { revalidatePath: () => { throw new Error("unexpected revalidation"); } },
+    "next/navigation": { unstable_rethrow: () => {}, redirect: () => { throw new Error("unexpected redirect"); } },
+    "@/features/cms/auth/cms-session": { clearCmsSession: async () => { throw new Error("cookie write failed"); } },
+    "@/lib/supabase/server": { createClient: async () => ({ auth: { signOut: async () => { signedOut = true; return { error: null }; } } }) },
+  });
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    assert.deepEqual(await actions.logout(), { error: "Unable to log out right now. Please try again." });
+    assert.equal(signedOut, true);
   } finally {
     console.error = originalError;
   }
@@ -218,6 +253,7 @@ test("admin proxy keeps auth responses private and forwards Supabase refresh hea
     },
   };
   const proxy = load("src/lib/supabase/proxy.ts", {
+    "@/features/cms/auth/cms-session": { CMS_SESSION_COOKIE: "portfolio_cms_session", readCmsSessionUserId: () => null, cmsSessionCookieOptions: () => ({}) },
     "next/server": {
       NextResponse: {
         next: () => {
@@ -268,8 +304,9 @@ test("direct CMS actions reject authenticated non-admin before any mutation", as
   assert.equal((await projects.deleteProjectAction(adminId)).success, false);
 
   const profile = load("src/features/cms/profile/actions.ts", {
-    ...common, "@/features/cms/profile/service": { updateProfile: denyWrite },
+    ...common, "@/features/cms/profile/service": { createProfile: denyWrite, updateProfile: denyWrite },
   });
+  assert.equal((await profile.createProfileAction({}, form)).success, false);
   assert.equal((await profile.updateProfileAction(adminId, {}, form)).success, false);
 
   const social = load("src/features/cms/social-links/actions.ts", {
@@ -437,15 +474,19 @@ test("existing public and visitor flows remain outside admin authorization", () 
   assert.doesNotMatch(sql, /add_portfolio_visitor_reply|create_portfolio_conversation|consume_portfolio_rate_limit/);
 });
 
-test("ordinary CMS services keep the authenticated client and public Storage retrieval is unchanged", () => {
+test("ordinary CMS services keep the authenticated client while managed media stays server-gated", () => {
   for (const area of ["projects", "profile", "social-links", "blog", "messages", "dashboard"]) {
     const source = fs.readFileSync(path.join(root, `src/features/cms/${area}/service.ts`), "utf8");
     assert.match(source, /createAuthorizedCmsClient/);
     assert.doesNotMatch(source, /createAdminClient|SUPABASE_SECRET_KEY|user_metadata/);
   }
-  const storage = fs.readFileSync(path.join(root, "src/lib/supabase/storage.ts"), "utf8");
-  assert.match(storage, /getPublicUrl/);
-  assert.doesNotMatch(storage, /createAdminClient|SUPABASE_SECRET_KEY/);
+  const upload = fs.readFileSync(path.join(root, "src/app/api/cms/media/route.ts"), "utf8");
+  assert.match(upload, /getAdminAccess/);
+  assert.match(upload, /access\.status !== "allowed"/);
+  assert.match(upload, /admin\.storage\.from\(DRAFT_MEDIA_BUCKET\)/);
+  const publicMedia = fs.readFileSync(path.join(root, "src/app/api/media/[category]/[filename]/route.ts"), "utf8");
+  assert.match(publicMedia, /from\(PUBLIC_MEDIA_BUCKET\)/);
+  assert.doesNotMatch(publicMedia, /DRAFT_MEDIA_BUCKET|createAdminClient/);
   const sql = fs.readFileSync(path.join(root, "supabase/migrations/20260926000600_admin_enforcement.sql"), "utf8");
   assert.doesNotMatch(sql, /project_images_.*select_gate/);
 });

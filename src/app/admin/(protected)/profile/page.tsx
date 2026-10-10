@@ -1,9 +1,10 @@
 import ProfileForm from "@/features/cms/profile/components/ProfileForm";
-import ProfilePreview from "@/features/cms/profile/components/ProfilePreview";
 import { getProfile } from "@/features/cms/profile/service";
+import { selectedMediaUrl } from "@/features/cms/media/paths";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ media?: string }> }) {
   const profile = await getProfile();
+  const selectedMedia = selectedMediaUrl((await searchParams).media);
 
   return (
     <main className="mx-auto max-w-7xl space-y-6">
@@ -13,22 +14,17 @@ export default async function ProfilePage() {
           Manage the personal information displayed on your website.
         </p>
       </div>
-      {profile ? (
-        <div className="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-5 text-lg font-semibold">Preview</h2>
-            <ProfilePreview profile={profile} />
-          </section>
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="mb-5 text-lg font-semibold">Profile details</h2>
-            <ProfileForm profile={profile} />
-          </section>
+      {!profile ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6" key="profile-setup">
+          <h2 className="text-lg font-semibold text-slate-950">Set up your portfolio profile</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Your profile has not been set up yet. Save the form below to create it once; you can edit it here afterward.</p>
         </div>
-      ) : (
-        <p className="rounded-lg border border-slate-200 bg-white p-5 text-slate-600 shadow-sm">
-          No profile record was found.
-        </p>
-      )}
+      ) : null}
+      <div className="max-w-4xl" key="profile-workspace">
+        <section aria-label="Profile details" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6" key="profile-editor">
+          <ProfileForm initialMediaUrl={selectedMedia} profile={profile} />
+        </section>
+      </div>
     </main>
   );
 }

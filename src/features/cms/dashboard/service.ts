@@ -4,7 +4,7 @@ import { createAuthorizedCmsClient } from "@/features/cms/auth/service";
 
 export interface DashboardStatsData {
   totalProjects: number | null;
-  totalBlogPosts: number | null;
+  totalExperiences: number | null;
   totalMessages: number | null;
 }
 
@@ -18,11 +18,11 @@ async function getTableCount(table: string): Promise<number | null> {
 }
 
 export async function getDashboardStats(): Promise<DashboardStatsData> {
-  const [totalProjects, totalBlogPosts, totalMessages] = await Promise.all([
+  const [totalProjects, totalExperiences, totalMessages] = await Promise.all([
     getTableCount("projects"),
-    getTableCount("blog_posts"),
+    getTableCount("experiences"),
     getTableCount("conversations"),
   ]);
 
-  return { totalProjects, totalBlogPosts, totalMessages };
+  return { totalProjects, totalExperiences, totalMessages };
 }

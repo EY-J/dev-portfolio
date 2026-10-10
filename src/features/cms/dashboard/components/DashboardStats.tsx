@@ -17,9 +17,9 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
         </p>
       </article>
       <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-medium text-slate-600">Total Blog Posts</h2>
+        <h2 className="text-sm font-medium text-slate-600">Total Experience</h2>
         <p className="mt-2 text-3xl font-semibold text-slate-950">
-          {formatCount(stats.totalBlogPosts)}
+          {formatCount(stats.totalExperiences)}
         </p>
       </article>
       <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getAdminUser } from "@/features/cms/auth/service";
+import { normalizeAssetUrl } from "@/features/portfolio/urls";
 import {
   createBlogPost,
   deleteBlogPost,
@@ -21,15 +22,6 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function readText(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function parseBlogPostInput(
@@ -51,8 +43,8 @@ function parseBlogPostInput(
     };
   }
 
-  if (imageUrl && !isHttpUrl(imageUrl)) {
-    return { input: null, error: "Enter a valid image URL." };
+  if (imageUrl && !normalizeAssetUrl(imageUrl)) {
+    return { input: null, error: "Upload a valid cover image." };
   }
 
   return {
@@ -83,7 +75,9 @@ export async function createBlogPostAction(
   try {
     await createBlogPost(result.input);
     revalidatePath(BLOG_PATH);
-    return { success: true, message: "Blog post created." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Blog post saved to draft." };
   } catch {
     return { success: false, message: "Unable to create the blog post." };
   }
@@ -110,7 +104,9 @@ export async function updateBlogPostAction(
   try {
     await updateBlogPost(id, result.input);
     revalidatePath(BLOG_PATH);
-    return { success: true, message: "Blog post updated." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Blog post saved to draft." };
   } catch {
     return { success: false, message: "Unable to update the blog post." };
   }
@@ -130,7 +126,9 @@ export async function deleteBlogPostAction(
   try {
     await deleteBlogPost(id);
     revalidatePath(BLOG_PATH);
-    return { success: true, message: "Blog post deleted." };
+    revalidatePath("/authpreview");
+    revalidatePath("/admin", "layout");
+    return { success: true, message: "Blog post deleted from draft." };
   } catch {
     return { success: false, message: "Unable to delete the blog post." };
   }

@@ -36,7 +36,7 @@ export async function getProjects(): Promise<Project[]> {
 }
 
 export async function createProject(input: ProjectInput): Promise<Project> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { data, error } = await supabase
     .from("projects")
     .insert({
@@ -61,7 +61,7 @@ export async function updateProject(
   id: string,
   input: ProjectInput
 ): Promise<{ project: Project; previousImageUrl: string }> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { data: existingProject, error: existingProjectError } = await supabase
     .from("projects")
     .select("image_url")
@@ -98,7 +98,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<Project> {
-  const supabase = await createAuthorizedCmsClient();
+  const supabase = await createAuthorizedCmsClient({ requireSitePublication: true });
   const { data, error } = await supabase
     .from("projects")
     .delete()

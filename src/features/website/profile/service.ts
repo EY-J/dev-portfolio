@@ -7,11 +7,10 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 
 const PUBLIC_PROFILE_COLUMNS =
-  "id, name, title, bio, avatar_url, resume_url";
+  "name, title, bio, avatar_url, resume_url";
 
 function mapPublicProfile(row: PublicProfileRow): PublicProfile {
   return {
-    id: row.id,
     name: row.name,
     title: row.title,
     bio: row.bio,

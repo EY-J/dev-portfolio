@@ -9,7 +9,7 @@ export type PublicProject = Pick<
   | "technologies"
   | "githubUrl"
   | "liveUrl"
->;
+> & { imageAlt?: string };
 
 export interface PublicProjectRow {
   id: string;

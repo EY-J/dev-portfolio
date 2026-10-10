@@ -19,9 +19,9 @@ export default function ProfilePreview({ profile }: ProfilePreviewProps) {
           width={160}
         />
       ) : null}
-      <h2 className="text-lg font-semibold">{profile.name}</h2>
+      <h3 className="text-lg font-semibold">{profile.name}</h3>
       <p className="text-sm font-medium text-slate-700">{profile.title}</p>
-      <p className="text-sm leading-6 text-slate-600">{profile.bio}</p>
+      {profile.bio ? <p className="whitespace-pre-line text-sm leading-6 text-slate-600">{profile.bio}</p> : null}
       {profile.resumeUrl ? (
         <a className="inline-flex text-sm font-medium text-slate-950 underline underline-offset-4" href={profile.resumeUrl} rel="noreferrer" target="_blank">
           View resume
